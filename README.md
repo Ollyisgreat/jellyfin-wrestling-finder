@@ -21,7 +21,7 @@ A Jellyfin plugin that finds wrestling events and downloads them into your libra
 ### Option B: manual
 Download the zip from [Releases](../../releases), unzip it into a `WrestlingFinder` folder inside Jellyfin's `plugins` directory, and restart Jellyfin.
 
-Requires **Jellyfin 10.11.x**.
+Requires **Jellyfin 12.3 or newer**.
 
 ## Setup
 1. Open **Wrestling Finder** from the Jellyfin side menu (or Dashboard → Plugins → Wrestling Finder).
