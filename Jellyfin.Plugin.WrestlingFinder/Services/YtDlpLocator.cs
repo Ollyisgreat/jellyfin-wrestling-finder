@@ -6,7 +6,6 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Controller.MediaEncoding;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.WrestlingFinder.Services;
@@ -17,7 +16,6 @@ namespace Jellyfin.Plugin.WrestlingFinder.Services;
 public class YtDlpLocator
 {
     private readonly ILogger<YtDlpLocator> _logger;
-    private readonly IMediaEncoder _mediaEncoder;
     private readonly SemaphoreSlim _installLock = new(1, 1);
     private string? _resolved;
 
@@ -25,17 +23,10 @@ public class YtDlpLocator
     /// Initializes a new instance of the <see cref="YtDlpLocator"/> class.
     /// </summary>
     /// <param name="logger">Logger.</param>
-    /// <param name="mediaEncoder">Jellyfin's media encoder (used to find ffmpeg).</param>
-    public YtDlpLocator(ILogger<YtDlpLocator> logger, IMediaEncoder mediaEncoder)
+    public YtDlpLocator(ILogger<YtDlpLocator> logger)
     {
         _logger = logger;
-        _mediaEncoder = mediaEncoder;
     }
-
-    /// <summary>
-    /// Gets the path to Jellyfin's ffmpeg, if known.
-    /// </summary>
-    public string? FfmpegPath => string.IsNullOrEmpty(_mediaEncoder.EncoderPath) ? null : _mediaEncoder.EncoderPath;
 
     /// <summary>
     /// Returns a working yt-dlp path, installing it into the plugin folder if needed.

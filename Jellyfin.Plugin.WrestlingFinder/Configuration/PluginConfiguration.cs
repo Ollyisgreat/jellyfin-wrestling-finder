@@ -18,7 +18,12 @@ public class PluginConfiguration : BasePluginConfiguration
     public string YtDlpPath { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets a value indicating whether yt-dlp may be downloaded automatically if it is missing.
+    /// Gets or sets the path to ffmpeg. Leave empty to find Jellyfin's own ffmpeg automatically.
+    /// </summary>
+    public string FfmpegPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether yt-dlp (and ffmpeg) may be downloaded automatically if it is missing.
     /// </summary>
     public bool AutoInstallYtDlp { get; set; } = true;
 

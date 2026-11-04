@@ -14,6 +14,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
         serviceCollection.AddSingleton<YtDlpLocator>();
+        serviceCollection.AddSingleton<FfmpegLocator>();
         serviceCollection.AddSingleton<EventResolver>();
         serviceCollection.AddSingleton<VideoSearchService>();
         serviceCollection.AddSingleton<DownloadManager>();

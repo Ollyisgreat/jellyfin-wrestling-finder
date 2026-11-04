@@ -22,6 +22,7 @@ public class DownloadManager
     private readonly ConcurrentDictionary<string, DownloadJob> _jobs = new();
     private readonly ILogger<DownloadManager> _logger;
     private readonly YtDlpLocator _ytDlp;
+    private readonly FfmpegLocator _ffmpeg;
     private readonly ILibraryManager _libraryManager;
     private readonly SemaphoreSlim _concurrency = new(2, 2);
 
@@ -30,11 +31,13 @@ public class DownloadManager
     /// </summary>
     /// <param name="logger">Logger.</param>
     /// <param name="ytDlp">yt-dlp locator.</param>
+    /// <param name="ffmpeg">ffmpeg locator.</param>
     /// <param name="libraryManager">Library manager.</param>
-    public DownloadManager(ILogger<DownloadManager> logger, YtDlpLocator ytDlp, ILibraryManager libraryManager)
+    public DownloadManager(ILogger<DownloadManager> logger, YtDlpLocator ytDlp, FfmpegLocator ffmpeg, ILibraryManager libraryManager)
     {
         _logger = logger;
         _ytDlp = ytDlp;
+        _ffmpeg = ffmpeg;
         _libraryManager = libraryManager;
     }
 
@@ -102,7 +105,8 @@ public class DownloadManager
         {
             EventName = name,
             Url = request.Url,
-            OutputFolder = Path.Combine(folder, name)
+            OutputFolder = Path.Combine(folder, name),
+            Folder = folder
         };
         _jobs[job.Id] = job;
 
@@ -121,29 +125,52 @@ public class DownloadManager
             Directory.CreateDirectory(job.OutputFolder);
 
             var exe = await _ytDlp.GetAsync(CancellationToken.None).ConfigureAwait(false);
+            job.Message = "Finding ffmpeg (first run may download it)…";
+            var ffmpeg = await _ffmpeg.GetAsync(CancellationToken.None).ConfigureAwait(false);
             var h = config.MaxHeight > 0 ? config.MaxHeight : 1080;
             var args = new List<string>
             {
                 "--newline",
-                "--no-playlist",
                 "--no-part",
-                "-f", $"bv*[height<={h}]+ba/b[height<={h}]/bv*+ba/b",
-                "--merge-output-format", "mkv",
-                "--write-thumbnail", "--convert-thumbnails", "jpg",
                 "-o", Path.Combine(job.OutputFolder, job.EventName + ".%(ext)s"),
-                "-o", "thumbnail:" + Path.Combine(job.OutputFolder, "poster.%(ext)s"),
             };
+
+            if (ffmpeg != null)
+            {
+                // A bare "ffmpeg" means it's on PATH, which yt-dlp finds by itself.
+                if (ffmpeg.Contains(Path.DirectorySeparatorChar, StringComparison.Ordinal) || ffmpeg.Contains('/', StringComparison.Ordinal))
+                {
+                    args.AddRange(new[] { "--ffmpeg-location", ffmpeg });
+                }
+
+                // Best quality: separate video + audio streams joined by ffmpeg.
+                args.AddRange(new[]
+                {
+                    "-f", $"bv*[height<={h}]+ba/b[height<={h}]/bv*+ba/b",
+                    "--merge-output-format", "mkv",
+                    "--write-thumbnail", "--convert-thumbnails", "jpg",
+                    "-o", "thumbnail:" + Path.Combine(job.OutputFolder, "poster.%(ext)s"),
+                });
+            }
+            else
+            {
+                // No ffmpeg: only formats that are already a single file (may be lower quality).
+                args.AddRange(new[]
+                {
+                    "-f", $"b[height<={h}][acodec!=none][vcodec!=none]/b[acodec!=none][vcodec!=none]/b",
+                    "--write-thumbnail",
+                    "-o", "thumbnail:" + Path.Combine(job.OutputFolder, "poster.%(ext)s"),
+                });
+            }
 
             // Internet Archive items can hold several files; take the first video only.
             if (job.Url.Contains("archive.org", StringComparison.OrdinalIgnoreCase))
             {
-                args.Remove("--no-playlist");
                 args.AddRange(new[] { "--playlist-items", "1" });
             }
-
-            if (_ytDlp.FfmpegPath is { } ffmpeg)
+            else
             {
-                args.AddRange(new[] { "--ffmpeg-location", ffmpeg });
+                args.Add("--no-playlist");
             }
 
             args.Add(job.Url);

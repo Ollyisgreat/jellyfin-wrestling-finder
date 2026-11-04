@@ -103,6 +103,9 @@ public class DownloadJob
     /// <summary>Gets or sets the last log line from yt-dlp.</summary>
     public string Message { get; set; } = string.Empty;
 
+    /// <summary>Gets or sets the library folder chosen.</summary>
+    public string Folder { get; set; } = string.Empty;
+
     /// <summary>Gets or sets the output folder.</summary>
     public string OutputFolder { get; set; } = string.Empty;
 

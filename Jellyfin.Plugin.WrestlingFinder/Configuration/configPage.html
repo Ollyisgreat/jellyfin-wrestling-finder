@@ -105,7 +105,11 @@
                         <input is="emby-input" type="text" id="YtDlpPath" label="yt-dlp path (optional)" />
                         <div class="fieldDescription">Leave blank to use yt-dlp from the system, or let the plugin download it.</div>
                     </div>
-                    <label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" id="AutoInstallYtDlp" /><span>Download yt-dlp automatically if it's missing</span></label>
+                    <div class="inputContainer">
+                        <input is="emby-input" type="text" id="FfmpegPath" label="ffmpeg path (optional)" />
+                        <div class="fieldDescription">Leave blank to find Jellyfin's own ffmpeg automatically.</div>
+                    </div>
+                    <label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" id="AutoInstallYtDlp" /><span>Download yt-dlp and ffmpeg automatically if they're missing</span></label>
                     <div class="wf-row">
                         <button is="emby-button" type="submit" class="raised button-submit"><span>Save settings</span></button>
                         <button is="emby-button" type="button" id="wfUpdateYtDlp" class="raised"><span>Update yt-dlp</span></button>
@@ -119,7 +123,7 @@
         (function () {
             var pluginId = '7c1d2a4e-5b3f-4e8a-9d61-2f0b8c4a9e17';
             var page = document.querySelector('#WrestlingFinderPage');
-            var textFields = ['YtDlpPath'];
+            var textFields = ['YtDlpPath', 'FfmpegPath'];
             var numFields = ['MinDurationMinutes', 'ResultsPerSource', 'MaxHeight'];
             var boolFields = ['SearchYouTube', 'SearchInternetArchive', 'SearchDailymotion', 'ScanLibraryAfterDownload', 'AutoInstallYtDlp'];
             var lastResults = [];
@@ -268,8 +272,20 @@
                             (j.Status === 'Downloading' ? ' ' + pct.toFixed(1) + '%' : '') +
                             '<div class="wf-bar"><div style="width:' + pct + '%"></div></div>' +
                             '<div class="wf-meta' + (j.Status === 'Failed' ? ' wf-warn' : '') + '" style="word-break:break-all">' + esc(j.Message) + '</div>' +
-                            '<div class="wf-meta"><a href="' + esc(safeUrl(j.Url)) + '" target="_blank" rel="noopener">source</a></div></div>';
+                            '<div class="wf-meta"><a href="' + esc(safeUrl(j.Url)) + '" target="_blank" rel="noopener" style="color:#00a4dc">source</a>' +
+                            (j.Status === 'Failed' ? ' · <a href="#" class="wf-retry" data-id="' + esc(j.Id) + '" style="color:#00a4dc">Retry</a>' : '') +
+                            '</div></div>';
                     }).join('');
+                    box.querySelectorAll('.wf-retry').forEach(function (a) {
+                        a.addEventListener('click', function (ev) {
+                            ev.preventDefault();
+                            var j = jobs.filter(function (x) { return x.Id === a.getAttribute('data-id'); })[0];
+                            if (!j) return;
+                            apiPost('WrestlingFinder/Download', { Url: j.Url, EventName: j.EventName, Folder: j.Folder })
+                                .then(refreshJobs)
+                                .catch(function (e) { errText(e).then(function (t) { Dashboard.alert(t); }); });
+                        });
+                    });
                 }).catch(function () { });
             }
             $('#wfClearJobs').addEventListener('click', function () { apiPost('WrestlingFinder/Jobs/Clear').then(refreshJobs); });
