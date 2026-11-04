@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Wrestling Finder</title>
+</head>
+<body>
+<div id="WrestlingFinderPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+    <style>
+        #WrestlingFinderPage .wf-card { background: rgba(255,255,255,.05); border-radius: 8px; padding: 1em 1.2em; margin-bottom: 1.2em; }
+        #WrestlingFinderPage .wf-row { display: flex; gap: .6em; align-items: flex-end; flex-wrap: wrap; }
+        #WrestlingFinderPage .wf-row .inputContainer { flex: 1; min-width: 240px; margin-bottom: 0; }
+        #WrestlingFinderPage .wf-chips { display: flex; flex-wrap: wrap; gap: .5em; margin-top: .8em; }
+        #WrestlingFinderPage .wf-chip { cursor: pointer; border: 1px solid rgba(255,255,255,.25); border-radius: 16px; padding: .35em .9em; background: transparent; color: inherit; font: inherit; }
+        #WrestlingFinderPage .wf-chip.selected { background: #00a4dc; border-color: #00a4dc; color: #fff; }
+        #WrestlingFinderPage .wf-desc { opacity: .7; font-size: .9em; margin-top: .6em; }
+        #WrestlingFinderPage .wf-result { display: flex; gap: 1em; padding: .8em 0; border-top: 1px solid rgba(255,255,255,.1); align-items: center; }
+        #WrestlingFinderPage .wf-result img { width: 160px; height: 90px; object-fit: cover; border-radius: 4px; background: #222; flex-shrink: 0; }
+        #WrestlingFinderPage .wf-result .wf-info { flex: 1; min-width: 0; }
+        #WrestlingFinderPage .wf-result a { color: #00a4dc; font-weight: 600; word-break: break-word; }
+        #WrestlingFinderPage .wf-meta { opacity: .75; font-size: .88em; margin-top: .25em; }
+        #WrestlingFinderPage .wf-badge { display: inline-block; font-size: .78em; padding: .1em .5em; border-radius: 4px; margin-right: .4em; background: rgba(255,255,255,.12); }
+        #WrestlingFinderPage .wf-good { background: #2e7d32; color: #fff; }
+        #WrestlingFinderPage .wf-warn { color: #ffb74d; }
+        #WrestlingFinderPage .wf-dim { opacity: .55; }
+        #WrestlingFinderPage .wf-bar { height: 6px; background: rgba(255,255,255,.1); border-radius: 3px; overflow: hidden; margin-top: .4em; }
+        #WrestlingFinderPage .wf-bar div { height: 100%; background: #00a4dc; }
+        #WrestlingFinderPage .wf-job { padding: .6em 0; border-top: 1px solid rgba(255,255,255,.1); }
+        #WrestlingFinderPage .wf-status { opacity: .8; margin: .8em 0; }
+        @media (max-width: 600px) { #WrestlingFinderPage .wf-result img { width: 110px; height: 62px; } }
+    </style>
+
+    <div data-role="content">
+        <div class="content-primary">
+            <h2 class="sectionTitle">Wrestling Finder</h2>
+
+            <!-- 1. Event -->
+            <div class="wf-card">
+                <h3 style="margin-top:0">1. Which event?</h3>
+                <form id="wfFindForm">
+                    <div class="wf-row">
+                        <div class="inputContainer">
+                            <input is="emby-input" type="text" id="wfQuery" label="Event (e.g. Elimination Chamber 2025, WM 41, rumble 24)" autocomplete="off" />
+                        </div>
+                        <button is="emby-button" type="submit" class="raised button-submit"><span>Find event</span></button>
+                    </div>
+                </form>
+                <div id="wfCandidates" class="wf-chips"></div>
+                <div id="wfCandidateDesc" class="wf-desc"></div>
+            </div>
+
+            <!-- 2. Results -->
+            <div class="wf-card" id="wfResultsCard" style="display:none">
+                <h3 style="margin-top:0">2. Pick the right video</h3>
+                <div class="wf-row" style="align-items:center; justify-content:space-between">
+                    <div id="wfResultsSummary"></div>
+                    <label class="checkboxContainer" style="margin:0">
+                        <input is="emby-checkbox" type="checkbox" id="wfShowAll" />
+                        <span>Show hidden results (short / highlights)</span>
+                    </label>
+                </div>
+                <div class="wf-row" style="margin-top:.6em">
+                    <div class="inputContainer">
+                        <input is="emby-input" type="text" id="wfFileName" label="Save as" />
+                    </div>
+                </div>
+                <div id="wfResults"></div>
+            </div>
+
+            <!-- 3. Downloads -->
+            <div class="wf-card">
+                <div class="wf-row" style="align-items:center; justify-content:space-between">
+                    <h3 style="margin:0">Downloads</h3>
+                    <button is="emby-button" type="button" id="wfClearJobs" class="raised"><span>Clear finished</span></button>
+                </div>
+                <div id="wfJobs"><div class="wf-status">No downloads yet.</div></div>
+            </div>
+
+            <!-- Settings -->
+            <details class="wf-card">
+                <summary style="cursor:pointer; font-size:1.15em">Settings</summary>
+                <form id="wfSettingsForm" style="margin-top:1em">
+                    <div class="inputContainer">
+                        <input is="emby-input" type="text" id="DownloadPath" label="Download folder (on the server)" />
+                        <div class="fieldDescription">Each event goes in its own subfolder here. Add this folder to Jellyfin as a library (Movies or Home Videos).</div>
+                    </div>
+                    <div class="inputContainer">
+                        <input is="emby-input" type="number" id="MinDurationMinutes" label="Minimum length for a full event (minutes)" min="0" />
+                        <div class="fieldDescription">Shorter videos (highlights, previews) are hidden by default.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <input is="emby-input" type="number" id="ResultsPerSource" label="Results per site" min="1" max="50" />
+                    </div>
+                    <div class="inputContainer">
+                        <input is="emby-input" type="number" id="MaxHeight" label="Max video quality (height, e.g. 1080)" min="144" />
+                    </div>
+                    <label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" id="SearchYouTube" /><span>Search YouTube</span></label>
+                    <label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" id="SearchInternetArchive" /><span>Search Internet Archive</span></label>
+                    <label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" id="SearchDailymotion" /><span>Search Dailymotion</span></label>
+                    <label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" id="ScanLibraryAfterDownload" /><span>Scan libraries when a download finishes</span></label>
+                    <div class="inputContainer">
+                        <input is="emby-input" type="text" id="YtDlpPath" label="yt-dlp path (optional)" />
+                        <div class="fieldDescription">Leave blank to use yt-dlp from the system, or let the plugin download it.</div>
+                    </div>
+                    <label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" id="AutoInstallYtDlp" /><span>Download yt-dlp automatically if it's missing</span></label>
+                    <div class="wf-row">
+                        <button is="emby-button" type="submit" class="raised button-submit"><span>Save settings</span></button>
+                        <button is="emby-button" type="button" id="wfUpdateYtDlp" class="raised"><span>Update yt-dlp</span></button>
+                    </div>
+                </form>
+            </details>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        (function () {
+            var pluginId = '7c1d2a4e-5b3f-4e8a-9d61-2f0b8c4a9e17';
+            var page = document.querySelector('#WrestlingFinderPage');
+            var textFields = ['DownloadPath', 'YtDlpPath'];
+            var numFields = ['MinDurationMinutes', 'ResultsPerSource', 'MaxHeight'];
+            var boolFields = ['SearchYouTube', 'SearchInternetArchive', 'SearchDailymotion', 'ScanLibraryAfterDownload', 'AutoInstallYtDlp'];
+            var lastResults = [];
+            var pollTimer = null;
+
+            function $(sel) { return page.querySelector(sel); }
+            function esc(s) {
+                return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+                    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+                });
+            }
+            function safeUrl(u) { return /^https?:\/\//i.test(u || '') ? u : '#'; }
+            function fmtDuration(sec) {
+                if (!sec) return 'length unknown';
+                sec = Math.round(sec);
+                var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+                return (h ? h + 'h ' : '') + m + 'm' + (h ? '' : ' ' + s + 's');
+            }
+            function apiGet(path, params) {
+                return ApiClient.getJSON(ApiClient.getUrl(path, params));
+            }
+            function apiPost(path, body) {
+                return ApiClient.ajax({
+                    type: 'POST',
+                    url: ApiClient.getUrl(path),
+                    data: body ? JSON.stringify(body) : undefined,
+                    contentType: 'application/json',
+                    dataType: body ? 'json' : undefined
+                });
+            }
+            function errText(e) {
+                if (!e) return 'Something went wrong';
+                if (e.text) { return e.text().then(function (t) { return t || e.statusText; }); }
+                return Promise.resolve(e.message || String(e));
+            }
+
+            // ---------- Step 1: resolve event ----------
+            $('#wfFindForm').addEventListener('submit', function (ev) {
+                ev.preventDefault();
+                var q = $('#wfQuery').value.trim();
+                if (!q) return;
+                $('#wfCandidates').innerHTML = '<div class="wf-status">Looking up event…</div>';
+                $('#wfCandidateDesc').textContent = '';
+                apiGet('WrestlingFinder/Resolve', { query: q }).then(function (cands) {
+                    var box = $('#wfCandidates');
+                    box.innerHTML = '';
+                    cands.forEach(function (c, i) {
+                        var b = document.createElement('button');
+                        b.type = 'button';
+                        b.className = 'wf-chip';
+                        b.textContent = c.Name;
+                        b.addEventListener('click', function () { chooseEvent(c, b); });
+                        box.appendChild(b);
+                        if (i === 0) chooseEvent(c, b);
+                    });
+                }).catch(function (e) {
+                    errText(e).then(function (t) { $('#wfCandidates').innerHTML = '<div class="wf-warn">' + esc(t) + '</div>'; });
+                });
+                return false;
+            });
+
+            function chooseEvent(c, btn) {
+                page.querySelectorAll('.wf-chip').forEach(function (x) { x.classList.remove('selected'); });
+                btn.classList.add('selected');
+                var d = c.Description ? esc(c.Description) : '';
+                if (c.Url) d += (d ? ' — ' : '') + '<a href="' + esc(safeUrl(c.Url)) + '" target="_blank" rel="noopener">Wikipedia</a>';
+                $('#wfCandidateDesc').innerHTML = d;
+                $('#wfFileName').value = c.Name;
+                searchVideos(c.Name);
+            }
+
+            // ---------- Step 2: search videos ----------
+            function searchVideos(name) {
+                $('#wfResultsCard').style.display = '';
+                $('#wfResultsSummary').textContent = 'Searching YouTube, Internet Archive and Dailymotion for "' + name + '"…';
+                $('#wfResults').innerHTML = '';
+                lastResults = [];
+                apiGet('WrestlingFinder/Search', { eventName: name }).then(function (res) {
+                    lastResults = res || [];
+                    renderResults();
+                }).catch(function (e) {
+                    errText(e).then(function (t) { $('#wfResultsSummary').innerHTML = '<span class="wf-warn">' + esc(t) + '</span>'; });
+                });
+            }
+
+            function renderResults() {
+                var showAll = $('#wfShowAll').checked;
+                var viable = lastResults.filter(function (r) { return r.Viable; });
+                var hidden = lastResults.length - viable.length;
+                var list = showAll ? lastResults : viable;
+                $('#wfResultsSummary').textContent = viable.length + ' likely full event' + (viable.length === 1 ? '' : 's') +
+                    (hidden ? ' · ' + hidden + ' hidden (short or highlights)' : '');
+                if (!list.length) {
+                    $('#wfResults').innerHTML = '<div class="wf-status">Nothing full-length found.' + (hidden ? ' Tick "Show hidden results" to see the rest.' : '') + '</div>';
+                    return;
+                }
+                $('#wfResults').innerHTML = list.map(function (r, i) {
+                    var idx = lastResults.indexOf(r);
+                    return '<div class="wf-result' + (r.Viable ? '' : ' wf-dim') + '">' +
+                        '<a href="' + esc(safeUrl(r.Url)) + '" target="_blank" rel="noopener"><img loading="lazy" src="' + esc(safeUrl(r.Thumbnail)) + '" alt=""></a>' +
+                        '<div class="wf-info">' +
+                        '<a href="' + esc(safeUrl(r.Url)) + '" target="_blank" rel="noopener">' + esc(r.Title) + '</a>' +
+                        '<div class="wf-meta">' +
+                        (r.Viable ? '<span class="wf-badge wf-good">Full event?</span>' : '') +
+                        '<span class="wf-badge">' + esc(r.Source) + '</span>' +
+                        '<strong>' + esc(fmtDuration(r.DurationSeconds)) + '</strong>' +
+                        (r.Uploader ? ' · ' + esc(r.Uploader) : '') +
+                        '</div>' +
+                        (r.Note ? '<div class="wf-meta wf-warn">' + esc(r.Note) + '</div>' : '') +
+                        '<div class="wf-meta" style="word-break:break-all">' + esc(r.Url) + '</div>' +
+                        '</div>' +
+                        '<button is="emby-button" type="button" class="raised button-submit wf-dl" data-idx="' + idx + '"><span>Download</span></button>' +
+                        '</div>';
+                }).join('');
+                page.querySelectorAll('.wf-dl').forEach(function (b) {
+                    b.addEventListener('click', function () { download(lastResults[+b.getAttribute('data-idx')], b); });
+                });
+            }
+            $('#wfShowAll').addEventListener('change', renderResults);
+
+            // ---------- Step 3: download ----------
+            function download(r, btn) {
+                var name = $('#wfFileName').value.trim();
+                if (!name || !r) return;
+                btn.disabled = true;
+                apiPost('WrestlingFinder/Download', { Url: r.Url, EventName: name }).then(function () {
+                    btn.querySelector('span').textContent = 'Queued';
+                    Dashboard.alert('Download started: ' + name);
+                    refreshJobs();
+                }).catch(function (e) {
+                    btn.disabled = false;
+                    errText(e).then(function (t) { Dashboard.alert(t); });
+                });
+            }
+
+            function refreshJobs() {
+                apiGet('WrestlingFinder/Jobs').then(function (jobs) {
+                    var box = $('#wfJobs');
+                    if (!jobs.length) { box.innerHTML = '<div class="wf-status">No downloads yet.</div>'; return; }
+                    box.innerHTML = jobs.map(function (j) {
+                        var pct = Math.max(0, Math.min(100, j.Progress || 0));
+                        return '<div class="wf-job"><strong>' + esc(j.EventName) + '</strong> — ' + esc(j.Status) +
+                            (j.Status === 'Downloading' ? ' ' + pct.toFixed(1) + '%' : '') +
+                            '<div class="wf-bar"><div style="width:' + pct + '%"></div></div>' +
+                            '<div class="wf-meta' + (j.Status === 'Failed' ? ' wf-warn' : '') + '" style="word-break:break-all">' + esc(j.Message) + '</div>' +
+                            '<div class="wf-meta"><a href="' + esc(safeUrl(j.Url)) + '" target="_blank" rel="noopener">source</a></div></div>';
+                    }).join('');
+                }).catch(function () { });
+            }
+            $('#wfClearJobs').addEventListener('click', function () { apiPost('WrestlingFinder/Jobs/Clear').then(refreshJobs); });
+
+            // ---------- Settings ----------
+            function loadSettings() {
+                ApiClient.getPluginConfiguration(pluginId).then(function (c) {
+                    textFields.forEach(function (f) { $('#' + f).value = c[f] || ''; });
+                    numFields.forEach(function (f) { $('#' + f).value = c[f]; });
+                    boolFields.forEach(function (f) { $('#' + f).checked = !!c[f]; });
+                    if (!c.DownloadPath) page.querySelector('details').open = true;
+                });
+            }
+            $('#wfSettingsForm').addEventListener('submit', function (ev) {
+                ev.preventDefault();
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (c) {
+                    textFields.forEach(function (f) { c[f] = $('#' + f).value.trim(); });
+                    numFields.forEach(function (f) { c[f] = parseInt($('#' + f).value, 10) || 0; });
+                    boolFields.forEach(function (f) { c[f] = $('#' + f).checked; });
+                    return ApiClient.updatePluginConfiguration(pluginId, c);
+                }).then(function (r) { Dashboard.processPluginConfigurationUpdateResult(r); });
+                return false;
+            });
+            $('#wfUpdateYtDlp').addEventListener('click', function () {
+                Dashboard.showLoadingMsg();
+                ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('WrestlingFinder/UpdateYtDlp'), dataType: 'json' })
+                    .then(function (t) { Dashboard.hideLoadingMsg(); Dashboard.alert(String(t)); })
+                    .catch(function (e) { Dashboard.hideLoadingMsg(); errText(e).then(function (t) { Dashboard.alert(t); }); });
+            });
+
+            page.addEventListener('pageshow', function () {
+                loadSettings();
+                refreshJobs();
+                if (pollTimer) clearInterval(pollTimer);
+                pollTimer = setInterval(refreshJobs, 3000);
+            });
+            page.addEventListener('pagehide', function () {
+                if (pollTimer) clearInterval(pollTimer);
+                pollTimer = null;
+            });
+        })();
+    </script>
+</div>
+</body>
+</html>
