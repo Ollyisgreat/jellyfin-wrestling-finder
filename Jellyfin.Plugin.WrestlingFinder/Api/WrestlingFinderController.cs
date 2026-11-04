@@ -94,6 +94,15 @@ public class WrestlingFinderController : ControllerBase
     }
 
     /// <summary>
+    /// Lists the folders of all Jellyfin libraries, plus the last-used folder.
+    /// </summary>
+    /// <returns>Folders and the default.</returns>
+    [HttpGet("Folders")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<object> Folders() =>
+        Ok(new { Folders = _downloads.GetLibraryFolders(), Default = Plugin.Instance!.Configuration.DownloadPath });
+
+    /// <summary>
     /// Lists download jobs.
     /// </summary>
     /// <returns>Jobs.</returns>

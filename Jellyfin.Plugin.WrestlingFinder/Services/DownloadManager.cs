@@ -56,6 +56,16 @@ public class DownloadManager
     }
 
     /// <summary>
+    /// Gets every folder of every Jellyfin library.
+    /// </summary>
+    /// <returns>Library folders.</returns>
+    public List<LibraryFolder> GetLibraryFolders() =>
+        _libraryManager.GetVirtualFolders()
+            .SelectMany(v => (v.Locations ?? Array.Empty<string>()).Select(l => new LibraryFolder { Library = v.Name, Path = l }))
+            .OrderBy(f => f.Library, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    /// <summary>
     /// Queues a download.
     /// </summary>
     /// <param name="request">Request.</param>
@@ -63,9 +73,23 @@ public class DownloadManager
     public DownloadJob Start(DownloadRequest request)
     {
         var config = Plugin.Instance!.Configuration;
-        if (string.IsNullOrWhiteSpace(config.DownloadPath))
+        var folder = string.IsNullOrWhiteSpace(request.Folder) ? config.DownloadPath : request.Folder.Trim();
+        if (string.IsNullOrWhiteSpace(folder))
         {
-            throw new InvalidOperationException("Set a download folder in the Wrestling Finder settings first.");
+            throw new InvalidOperationException("Choose a library folder to save into.");
+        }
+
+        if (!string.Equals(folder, config.DownloadPath, StringComparison.Ordinal)
+            && !GetLibraryFolders().Any(f => string.Equals(f.Path, folder, StringComparison.Ordinal)))
+        {
+            throw new ArgumentException("That folder isn't one of your Jellyfin library folders.");
+        }
+
+        // Remember the choice so it's pre-selected next time.
+        if (!string.Equals(folder, config.DownloadPath, StringComparison.Ordinal))
+        {
+            config.DownloadPath = folder;
+            Plugin.Instance.SaveConfiguration();
         }
 
         if (!Uri.TryCreate(request.Url, UriKind.Absolute, out var uri) || (uri.Scheme != "https" && uri.Scheme != "http"))
@@ -78,7 +102,7 @@ public class DownloadManager
         {
             EventName = name,
             Url = request.Url,
-            OutputFolder = Path.Combine(config.DownloadPath, name)
+            OutputFolder = Path.Combine(folder, name)
         };
         _jobs[job.Id] = job;
 

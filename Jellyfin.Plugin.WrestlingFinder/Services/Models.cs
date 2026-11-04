@@ -63,6 +63,21 @@ public class DownloadRequest
 
     /// <summary>Gets or sets the event name used for the file and folder.</summary>
     public string EventName { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the library folder to save into (empty = the saved default).</summary>
+    public string Folder { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// A folder belonging to a Jellyfin library.
+/// </summary>
+public class LibraryFolder
+{
+    /// <summary>Gets or sets the library name.</summary>
+    public string Library { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the folder path on the server.</summary>
+    public string Path { get; set; } = string.Empty;
 }
 
 /// <summary>

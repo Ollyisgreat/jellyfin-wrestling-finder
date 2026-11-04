@@ -5,7 +5,7 @@
     <title>Wrestling Finder</title>
 </head>
 <body>
-<div id="WrestlingFinderPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+<div id="WrestlingFinderPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox,emby-select">
     <style>
         #WrestlingFinderPage .wf-card { background: rgba(255,255,255,.05); border-radius: 8px; padding: 1em 1.2em; margin-bottom: 1.2em; }
         #WrestlingFinderPage .wf-row { display: flex; gap: .6em; align-items: flex-end; flex-wrap: wrap; }
@@ -63,6 +63,9 @@
                     <div class="inputContainer">
                         <input is="emby-input" type="text" id="wfFileName" label="Save as" />
                     </div>
+                    <div class="selectContainer" style="flex:1; min-width:240px; margin-bottom:0">
+                        <select is="emby-select" id="wfFolder" label="Save to library"></select>
+                    </div>
                 </div>
                 <div id="wfResults"></div>
             </div>
@@ -81,8 +84,8 @@
                 <summary style="cursor:pointer; font-size:1.15em">Settings</summary>
                 <form id="wfSettingsForm" style="margin-top:1em">
                     <div class="inputContainer">
-                        <input is="emby-input" type="text" id="DownloadPath" label="Download folder (on the server)" />
-                        <div class="fieldDescription">Each event goes in its own subfolder here. Add this folder to Jellyfin as a library (Movies or Home Videos).</div>
+                        <select is="emby-select" id="DownloadPath" label="Default library folder"></select>
+                        <div class="fieldDescription">Pre-selected for every download (the last folder you used is remembered). Each event gets its own subfolder.</div>
                     </div>
                     <div class="inputContainer">
                         <input is="emby-input" type="number" id="MinDurationMinutes" label="Minimum length for a full event (minutes)" min="0" />
@@ -116,7 +119,7 @@
         (function () {
             var pluginId = '7c1d2a4e-5b3f-4e8a-9d61-2f0b8c4a9e17';
             var page = document.querySelector('#WrestlingFinderPage');
-            var textFields = ['DownloadPath', 'YtDlpPath'];
+            var textFields = ['YtDlpPath'];
             var numFields = ['MinDurationMinutes', 'ResultsPerSource', 'MaxHeight'];
             var boolFields = ['SearchYouTube', 'SearchInternetArchive', 'SearchDailymotion', 'ScanLibraryAfterDownload', 'AutoInstallYtDlp'];
             var lastResults = [];
@@ -242,8 +245,11 @@
                 var name = $('#wfFileName').value.trim();
                 if (!name || !r) return;
                 btn.disabled = true;
-                apiPost('WrestlingFinder/Download', { Url: r.Url, EventName: name }).then(function () {
+                var folder = $('#wfFolder').value;
+                if (!folder) { Dashboard.alert('Pick a library folder to save into.'); return; }
+                apiPost('WrestlingFinder/Download', { Url: r.Url, EventName: name, Folder: folder }).then(function () {
                     btn.querySelector('span').textContent = 'Queued';
+                    $('#DownloadPath').value = folder;
                     Dashboard.alert('Download started: ' + name);
                     refreshJobs();
                 }).catch(function (e) {
@@ -268,8 +274,33 @@
             }
             $('#wfClearJobs').addEventListener('click', function () { apiPost('WrestlingFinder/Jobs/Clear').then(refreshJobs); });
 
+            // ---------- Library folders ----------
+            function fillFolderSelect(sel, folders, current) {
+                var html = '';
+                var found = false;
+                folders.forEach(function (f) {
+                    if (f.Path === current) found = true;
+                    html += '<option value="' + esc(f.Path) + '">' + esc(f.Library + ' — ' + f.Path) + '</option>';
+                });
+                if (current && !found) {
+                    html = '<option value="' + esc(current) + '">' + esc(current) + '</option>' + html;
+                }
+                if (!folders.length && !current) {
+                    html = '<option value="">No libraries found — add one in Dashboard → Libraries</option>';
+                }
+                sel.innerHTML = html;
+                if (current) sel.value = current;
+            }
+            function loadFolders() {
+                return apiGet('WrestlingFinder/Folders').then(function (d) {
+                    fillFolderSelect($('#wfFolder'), d.Folders || [], d.Default);
+                    fillFolderSelect($('#DownloadPath'), d.Folders || [], d.Default);
+                });
+            }
+
             // ---------- Settings ----------
             function loadSettings() {
+                loadFolders();
                 ApiClient.getPluginConfiguration(pluginId).then(function (c) {
                     textFields.forEach(function (f) { $('#' + f).value = c[f] || ''; });
                     numFields.forEach(function (f) { $('#' + f).value = c[f]; });
@@ -282,10 +313,14 @@
                 Dashboard.showLoadingMsg();
                 ApiClient.getPluginConfiguration(pluginId).then(function (c) {
                     textFields.forEach(function (f) { c[f] = $('#' + f).value.trim(); });
+                    c.DownloadPath = $('#DownloadPath').value;
                     numFields.forEach(function (f) { c[f] = parseInt($('#' + f).value, 10) || 0; });
                     boolFields.forEach(function (f) { c[f] = $('#' + f).checked; });
                     return ApiClient.updatePluginConfiguration(pluginId, c);
-                }).then(function (r) { Dashboard.processPluginConfigurationUpdateResult(r); });
+                }).then(function (r) {
+                    Dashboard.processPluginConfigurationUpdateResult(r);
+                    $('#wfFolder').value = $('#DownloadPath').value;
+                });
                 return false;
             });
             $('#wfUpdateYtDlp').addEventListener('click', function () {

@@ -8,7 +8,7 @@ A Jellyfin plugin that finds wrestling events and downloads them into your libra
 3. **You see every result** with its thumbnail, source, uploader, **length** and a **direct link**, so you can open the video and check it yourself.
    - Anything shorter than **50 minutes** (you can change this) or titled like a highlight, preview, reaction or review is hidden, so you only see possible full shows.
    - Tick **Show hidden results** to see everything.
-4. **Click Download** on the one you want. It's saved as `<Download folder>/<Event Name>/<Event Name>.mkv` with a poster, and Jellyfin scans the library automatically.
+4. **Choose a library** from the dropdown and **click Download** on the one you want. It's saved as `<Library folder>/<Event Name>/<Event Name>.mkv` with a poster, and Jellyfin scans the library automatically.
 
 ## Install
 
@@ -25,8 +25,7 @@ Requires **Jellyfin 12.3 or newer**.
 
 ## Setup
 1. Open **Wrestling Finder** from the Jellyfin side menu (or Dashboard → Plugins → Wrestling Finder).
-2. Open **Settings**, set a **Download folder** that Jellyfin can write to (e.g. `/media/wrestling`), and save.
-3. Add that same folder as a library in Jellyfin (content type *Movies* or *Home Videos*).
+2. Pick where to save from the **Save to library** dropdown, which lists every folder of your Jellyfin libraries. The last one you used is remembered.
 
 **yt-dlp** does the downloading. If it isn't installed on the server, the plugin downloads it automatically into its own data folder. It also works in the official Docker image. Sites change often, so use **Settings → Update yt-dlp** if downloads start failing. Jellyfin's own ffmpeg is used to merge video and audio.
 
