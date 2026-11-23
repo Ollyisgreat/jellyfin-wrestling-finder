@@ -106,6 +106,15 @@
                         <div class="fieldDescription">Leave blank to use yt-dlp from the system, or let the plugin download it.</div>
                     </div>
                     <div class="inputContainer">
+                        <label for="YouTubeCookies" style="display:block; margin-bottom:.4em">YouTube cookies (fixes "Sign in to confirm you're not a bot")</label>
+                        <textarea id="YouTubeCookies" rows="5" spellcheck="false" style="width:100%; box-sizing:border-box; font-family:monospace; font-size:.8em; background:#292929; color:inherit; border:1px solid rgba(255,255,255,.2); border-radius:4px; padding:.5em" placeholder="# Netscape HTTP Cookie File&#10;.youtube.com	TRUE	/	TRUE	...	"></textarea>
+                        <div class="fieldDescription">
+                            On a computer: install the <b>Get cookies.txt LOCALLY</b> extension in Chrome or Firefox, open youtube.com while signed in,
+                            click the extension and <b>Copy</b>, then paste here and Save. Using a spare Google account is a good idea.
+                            Cookies last weeks to months; if the error comes back, paste fresh ones.
+                        </div>
+                    </div>
+                    <div class="inputContainer">
                         <input is="emby-input" type="text" id="FfmpegPath" label="ffmpeg path (optional)" />
                         <div class="fieldDescription">Leave blank to find Jellyfin's own ffmpeg automatically.</div>
                     </div>
@@ -123,7 +132,7 @@
         (function () {
             var pluginId = '7c1d2a4e-5b3f-4e8a-9d61-2f0b8c4a9e17';
             var page = document.querySelector('#WrestlingFinderPage');
-            var textFields = ['YtDlpPath', 'FfmpegPath'];
+            var textFields = ['YtDlpPath', 'FfmpegPath', 'YouTubeCookies'];
             var numFields = ['MinDurationMinutes', 'ResultsPerSource', 'MaxHeight'];
             var boolFields = ['SearchYouTube', 'SearchInternetArchive', 'SearchDailymotion', 'ScanLibraryAfterDownload', 'AutoInstallYtDlp'];
             var lastResults = [];

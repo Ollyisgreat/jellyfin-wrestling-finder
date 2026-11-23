@@ -175,7 +175,7 @@ public class VideoSearchService
         {
             var (_, output) = await YtDlpLocator.RunAsync(
                 exe,
-                new[] { "--flat-playlist", "--dump-json", "--no-warnings", "--ignore-errors", $"ytsearch{n}:{q}" },
+                YtDlpLocator.CommonArgs().Concat(new[] { "--flat-playlist", "--dump-json", "--no-warnings", "--ignore-errors", $"ytsearch{n}:{q}" }),
                 null,
                 ct).ConfigureAwait(false);
 

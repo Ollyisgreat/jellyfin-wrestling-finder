@@ -125,15 +125,18 @@ public class DownloadManager
             Directory.CreateDirectory(job.OutputFolder);
 
             var exe = await _ytDlp.GetAsync(CancellationToken.None).ConfigureAwait(false);
+            job.Message = "Checking for yt-dlp updates…";
+            await _ytDlp.UpdateIfStaleAsync(CancellationToken.None).ConfigureAwait(false);
             job.Message = "Finding ffmpeg (first run may download it)…";
             var ffmpeg = await _ffmpeg.GetAsync(CancellationToken.None).ConfigureAwait(false);
             var h = config.MaxHeight > 0 ? config.MaxHeight : 1080;
-            var args = new List<string>
+            var args = YtDlpLocator.CommonArgs();
+            args.AddRange(new[]
             {
                 "--newline",
                 "--no-part",
                 "-o", Path.Combine(job.OutputFolder, job.EventName + ".%(ext)s"),
-            };
+            });
 
             if (ffmpeg != null)
             {
@@ -175,7 +178,7 @@ public class DownloadManager
 
             args.Add(job.Url);
 
-            var (code, output) = await YtDlpLocator.RunAsync(exe, args, line =>
+            Action<string> onLine = line =>
             {
                 var m = ProgressRegex.Match(line);
                 if (m.Success && double.TryParse(m.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var p))
@@ -187,13 +190,31 @@ public class DownloadManager
                 {
                     job.Message = line.Length > 300 ? line[..300] : line;
                 }
-            }, CancellationToken.None).ConfigureAwait(false);
+            };
+
+            var (code, output) = await YtDlpLocator.RunAsync(exe, args, onLine, CancellationToken.None).ConfigureAwait(false);
+
+            // YouTube's "not a bot" check sometimes only applies to some of its player types; try others once.
+            if (code != 0 && IsBotCheck(output))
+            {
+                job.Message = "YouTube asked for a bot check, trying another way…";
+                var retryArgs = new List<string>(args);
+                retryArgs.Insert(retryArgs.Count - 1, "--extractor-args");
+                retryArgs.Insert(retryArgs.Count - 1, "youtube:player_client=tv,web_safari,mweb");
+                (code, output) = await YtDlpLocator.RunAsync(exe, retryArgs, onLine, CancellationToken.None).ConfigureAwait(false);
+            }
 
             if (code != 0)
             {
                 job.Status = "Failed";
                 var err = output.Split('\n').LastOrDefault(l => l.Contains("ERROR", StringComparison.Ordinal));
                 job.Message = err ?? $"yt-dlp exited with code {code}";
+                if (IsBotCheck(output))
+                {
+                    job.Message = string.IsNullOrWhiteSpace(config.YouTubeCookies)
+                        ? "YouTube is blocking your server (\"confirm you're not a bot\"). Paste your YouTube cookies in Settings → YouTube cookies, then tap Retry. Or pick an Internet Archive / Dailymotion result."
+                        : "YouTube is still blocking your server. Your cookies may have expired. Export fresh ones into Settings → YouTube cookies, then tap Retry.";
+                }
                 _logger.LogError("Download failed for {Url}: {Output}", job.Url, output);
                 return;
             }
@@ -218,6 +239,10 @@ public class DownloadManager
             _concurrency.Release();
         }
     }
+
+    private static bool IsBotCheck(string output) =>
+        output.Contains("not a bot", StringComparison.OrdinalIgnoreCase)
+        || output.Contains("Sign in to confirm", StringComparison.OrdinalIgnoreCase);
 
     private static string SafeName(string name)
     {

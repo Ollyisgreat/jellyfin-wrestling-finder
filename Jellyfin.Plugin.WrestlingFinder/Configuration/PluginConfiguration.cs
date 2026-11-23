@@ -18,6 +18,11 @@ public class PluginConfiguration : BasePluginConfiguration
     public string YtDlpPath { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets YouTube cookies (Netscape cookies.txt format) used to get past YouTube's "not a bot" check.
+    /// </summary>
+    public string YouTubeCookies { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the path to ffmpeg. Leave empty to find Jellyfin's own ffmpeg automatically.
     /// </summary>
     public string FfmpegPath { get; set; } = string.Empty;

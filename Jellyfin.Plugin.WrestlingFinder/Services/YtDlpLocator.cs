@@ -18,6 +18,7 @@ public class YtDlpLocator
     private readonly ILogger<YtDlpLocator> _logger;
     private readonly SemaphoreSlim _installLock = new(1, 1);
     private string? _resolved;
+    private DateTime _lastUpdateCheck = DateTime.MinValue;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="YtDlpLocator"/> class.
@@ -75,6 +76,58 @@ public class YtDlpLocator
         finally
         {
             _installLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Arguments every yt-dlp call should get (currently: YouTube cookies, if set).
+    /// </summary>
+    /// <returns>Extra arguments.</returns>
+    public static List<string> CommonArgs()
+    {
+        var args = new List<string>();
+        var cookies = Plugin.Instance!.Configuration.YouTubeCookies;
+        if (string.IsNullOrWhiteSpace(cookies))
+        {
+            return args;
+        }
+
+        var text = cookies.Replace("\r\n", "\n", StringComparison.Ordinal).Trim() + "\n";
+        if (!text.StartsWith("# Netscape HTTP Cookie File", StringComparison.OrdinalIgnoreCase)
+            && !text.StartsWith("# HTTP Cookie File", StringComparison.OrdinalIgnoreCase))
+        {
+            text = "# Netscape HTTP Cookie File\n" + text;
+        }
+
+        var path = Path.Combine(Plugin.Instance.DataFolderPath, "cookies.txt");
+        Directory.CreateDirectory(Plugin.Instance.DataFolderPath);
+        File.WriteAllText(path, text);
+        args.Add("--cookies");
+        args.Add(path);
+        return args;
+    }
+
+    /// <summary>
+    /// Updates yt-dlp at most once a day (YouTube changes often and old versions get blocked).
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task.</returns>
+    public async Task UpdateIfStaleAsync(CancellationToken cancellationToken)
+    {
+        if (DateTime.UtcNow - _lastUpdateCheck < TimeSpan.FromHours(24))
+        {
+            return;
+        }
+
+        _lastUpdateCheck = DateTime.UtcNow;
+        try
+        {
+            var result = await UpdateAsync(cancellationToken).ConfigureAwait(false);
+            _logger.LogInformation("yt-dlp update check: {Result}", result);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "yt-dlp update check failed");
         }
     }
 
